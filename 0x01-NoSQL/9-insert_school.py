@@ -4,4 +4,4 @@
 
 def update_topics(mongo_collection, name, topics):
     '''Inserts a new document in a collection based on kwargs'''
-    return mongo_collection.insert_one(kwargs).inserte_id
+    return mongo_collection.insert_one(kwargs).inserted_id
