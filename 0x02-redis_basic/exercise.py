@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-""" Contains the cache class and redis methods"""
+"""
+Writing, reading, storing and retrieving lists in redis
+"""
 
 import redis
 from typing import Union, Callable, Optional
@@ -10,24 +12,23 @@ from functools import wraps
 
 def count_calls(method: Callable) -> Callable:
     """
-    A decorator that takes a single method Callable argument and returns a Callable
+    A decorator to count number the Cache methods implementation
     """
 
     @wraps(method)
     def wrapper(*args, **kwargs):
 
-        # result = method(*args, **kwargs)
+        result = method(*args, **kwargs)
         key = method.__qualname__
-        return method(self, *args, **kwargs)
-        # args[0]._redis.incr(key)
-        # return result
+        args[0]._redis.incr(key)
+        return result
 
     return wrapper
 
 
 def call_history(method: Callable) -> Callable:
     """
-    decorator to add input parametersand output parameters to
+    A function decorator to parameterize
     different lists in redis
     """
     @wraps(method)
@@ -42,11 +43,31 @@ def call_history(method: Callable) -> Callable:
     return wrapper
 
 
+def replay(method: Callable):
+    """display history of calls of a particular funtion
+
+    Args:
+        method (Callable): function to be analysed
+    """
+    r = redis.Redis()
+    key = method.__qualname__
+    method_count = r.get(key)
+    inputs = r.lrange("{}:inputs".format(key), 0, -1)
+    outputs = r.lrange("{}:outputs".format(key), 0, -1)
+    print("{} was called {} times:".format(key, int(method_count)))
+    for ins, outs in zip(inputs, outputs):
+        print("{}(*{}) -> {}".format(key,
+              ins.decode("utf-8"), outs.decode("utf-8")))
+
+
 class Cache:
-    """ Defines the Cache class"""
+    """
+    Defines the Cache class
+    """
 
     def __init__(self) -> None:
-        """ Instantiates the Ccche class
+        """
+        Instaniates the Cache class
         """
         self._redis = redis.Redis()
         self._redis.flushdb()
@@ -55,20 +76,21 @@ class Cache:
     @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
         """
-        Stores input data using generated random key and returns the key
+        Stores input data using generated uuid key
         """
         key = str(uuid4())
         self._redis.set(key, data)
         return key
 
-    def get(self,
-            key: str,
+    def get(self, key: str,
             fn: Optional[Callable] = None) -> Union[str,
                                                     bytes,
                                                     int,
                                                     float,
                                                     None]:
-        """ Retrieves the value stored in Redis under the given key"""
+        """
+        Retrieves stored data with optional conversion function
+        """
         if not self._redis.get(key):
             return None
 
@@ -79,12 +101,12 @@ class Cache:
 
     def get_str(self, key: str) -> str:
         """
-        Retrieves the redis stored value in str format
+        Retrieves redis stored value in str format
         """
         return str(self.get(key, lambda d: d.decode("utf-8")))
 
     def get_int(self, key: str) -> int:
         """
-        Retrieves the redis stored value in int format
+        Retrieve redis stored value in int format
         """
         return self.get(key, int)
